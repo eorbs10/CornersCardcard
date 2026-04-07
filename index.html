@@ -1,407 +1,365 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebGL 웨이브 게임 (카메라 시점 완벽 수정판)</title>
-    <style>
-        body { 
-            margin: 0; 
-            overflow: hidden; 
-            background-color: #1a1a1a; 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            user-select: none; 
-            touch-action: none; 
-        }
-        canvas { 
-            display: block; 
-        }
-        #ui-layer {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none;
-        }
-        #scoreBoard {
-            position: absolute; 
-            top: 20px; 
-            left: 20px; 
-            color: white; 
-            font-size: 24px; 
-            font-weight: bold;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-        }
-        #startMsg {
-            position: absolute;
-            top: 15%;
-            width: 100%;
-            text-align: center;
-            color: #00ff00;
-            font-size: 20px;
-            font-weight: bold;
-            text-shadow: 0 0 10px rgba(0,255,0,0.5);
-            animation: pulse 1s infinite alternate;
-        }
-        @keyframes pulse {
-            from { opacity: 0.5; }
-            to { opacity: 1; }
-        }
-        #gameover-container {
-            position: absolute; 
-            top: 50%; 
-            left: 50%; 
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.85);
-            padding: 40px; 
-            border-radius: 15px;
-            text-align: center;
-            color: white;
-            display: none;
-            pointer-events: auto; 
-            box-shadow: 0 0 20px rgba(0,0,0,0.8);
-        }
-        #gameover-container h1 { margin-top: 0; color: #ff4444; }
-        #deathReason { color: #aaa; margin-bottom: 20px; }
-        button {
-            padding: 12px 24px; 
-            font-size: 18px; 
-            font-weight: bold;
-            background-color: #00ff00; 
-            color: #000; 
-            border: none; 
-            border-radius: 8px; 
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        button:hover { background-color: #00cc00; }
-    </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>스피드 카드 분류 게임</title>
+<style>
+    /* 기본 설정: 모바일 화면에서 스크롤 방지 */
+    body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        font-family: 'Pretendard', sans-serif;
+        background-color: #f8f9fa;
+        touch-action: none; /* 드래그 시 화면 스크롤 방지 */
+    }
+
+    /* 게임 전체 컨테이너 */
+    #game-container {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* 상단 UI (타이머 & 점수) */
+    #header {
+        padding: 15px 20px;
+        background: #212529;
+        color: white;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        z-index: 10;
+    }
+
+    /* 줄어드는 타이머 바 (모래시계 컨셉) */
+    #timer-bg {
+        width: 100%;
+        height: 15px;
+        background: #495057;
+        border-radius: 10px;
+        overflow: hidden;
+        margin-bottom: 10px;
+    }
+    
+    #timer-bar {
+        width: 100%;
+        height: 100%;
+        background: #20c997; /* 기본 초록색 */
+        transition: width 0.1s linear, background-color 0.3s ease;
+    }
+
+    #stats {
+        display: flex;
+        justify-content: space-between;
+        font-size: 1.2rem;
+        font-weight: 700;
+    }
+
+    /* 게임 보드 영역 */
+    #board {
+        flex: 1;
+        position: relative;
+    }
+
+    /* 드롭 구역 (상하좌우) */
+    .zone {
+        position: absolute;
+        width: 100px;
+        height: 130px;
+        border: 4px dashed;
+        border-radius: 12px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-weight: bold;
+        font-size: 1.2rem;
+        opacity: 0.6;
+        background: rgba(255, 255, 255, 0.5);
+    }
+
+    #zone-red { top: 20px; left: 50%; transform: translateX(-50%); border-color: #fa5252; color: #fa5252; }
+    #zone-yellow { bottom: 20px; left: 50%; transform: translateX(-50%); border-color: #fcc419; color: #fcc419; }
+    #zone-blue { top: 50%; left: 20px; transform: translateY(-50%); border-color: #339af0; color: #339af0; }
+    #zone-purple { top: 50%; right: 20px; transform: translateY(-50%); border-color: #be4bdb; color: #be4bdb; }
+
+    /* 중앙 카드 덱 */
+    #deck-container {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 100px;
+        height: 140px;
+    }
+
+    /* 개별 카드 */
+    .card {
+        position: absolute;
+        width: 100px;
+        height: 140px;
+        border-radius: 12px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        cursor: grab;
+        transition: transform 0.2s ease;
+    }
+
+    .card.dragging {
+        cursor: grabbing;
+        transition: none; /* 드래그 중에는 부드러운 애니메이션 끔 */
+        z-index: 100 !important;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+    }
+
+    /* 카드 색상 */
+    .bg-red { background-color: #fa5252; }
+    .bg-yellow { background-color: #fcc419; }
+    .bg-blue { background-color: #339af0; }
+    .bg-purple { background-color: #be4bdb; }
+
+    /* 시작/종료 오버레이 화면 */
+    #overlay {
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.85);
+        color: white;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 200;
+        text-align: center;
+    }
+
+    h1 { margin-bottom: 10px; }
+    p { margin-bottom: 30px; font-size: 1.2rem; color: #ced4da; }
+    
+    button {
+        padding: 15px 40px;
+        font-size: 1.5rem;
+        font-weight: bold;
+        cursor: pointer;
+        border: none;
+        border-radius: 8px;
+        background: #20c997;
+        color: white;
+        box-shadow: 0 4px 0 #12b886;
+        transition: transform 0.1s;
+    }
+    button:active {
+        transform: translateY(4px);
+        box-shadow: none;
+    }
+</style>
 </head>
 <body>
-    <div id="ui-layer">
-        <div id="scoreBoard">점수: <span id="score">0</span></div>
-        <div id="startMsg">하얀색 체스판 위를 클릭한 채로 움직이세요!<br>(마우스를 떼면 게임 오버)</div>
+
+<div id="game-container">
+    <div id="header">
+        <div id="timer-bg">
+            <div id="timer-bar"></div>
+        </div>
+        <div id="stats">
+            <span id="score-display">현재 점수: 0</span>
+            <span id="max-score-display">최고 기록: 0</span>
+        </div>
     </div>
-    
-    <div id="gameover-container">
-        <h1>게임 오버!</h1>
-        <p id="deathReason">웨이브에 휩쓸렸습니다.</p>
-        <button id="resetBtn">다시 시작하기</button>
+
+    <div id="board">
+        <div class="zone" id="zone-red" data-color="red">빨강 (위)</div>
+        <div class="zone" id="zone-blue" data-color="blue">파랑 (좌)</div>
+        <div class="zone" id="zone-yellow" data-color="yellow">노랑 (아래)</div>
+        <div class="zone" id="zone-purple" data-color="purple">보라 (우)</div>
+
+        <div id="deck-container"></div>
     </div>
+</div>
 
-    <script>
-        // 1. 기본 씬 설정
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+<div id="overlay">
+    <h1 id="overlay-title">스피드 카드 분류</h1>
+    <p id="overlay-desc">같은 색상의 박스로 카드를 드래그하세요.<br>틀리면 즉시 탈락합니다!</p>
+    <button onclick="startGame()">게임 시작</button>
+</div>
+
+<script>
+    const colors = ['red', 'yellow', 'blue', 'purple'];
+    let deck = [];
+    let score = 0;
+    let maxScore = localStorage.getItem('cardGameMaxScore') || 0;
+    let timeLeft = 60;
+    let timerInterval;
+    let isPlaying = false;
+
+    // 초기 최고 기록 표시
+    document.getElementById('max-score-display').innerText = `최고 기록: ${maxScore}`;
+
+    function randomColor() {
+        return colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    function startGame() {
+        document.getElementById('overlay').style.display = 'none';
+        score = 0;
+        timeLeft = 60;
+        isPlaying = true;
         
-        // 💡 핵심 수정: 카메라를 훨씬 높이(Y=15) 당겨서 맨 위/아래 가장자리 끝까지 다 보이게 만듦
-        camera.position.set(0, 15, 8); 
-        camera.lookAt(0, 0, 0);
-
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        document.body.appendChild(renderer.domElement);
-
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-        scene.add(ambientLight);
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
-        dirLight.position.set(5, 10, 5);
-        scene.add(dirLight);
-
-        // 2. 5x10 체스판 + 경기장 밖 생성구역(대기존) 구성
-        const cols = 5;  
-        const rows = 10; 
-        const tiles = {}; 
-        const tileGroup = new THREE.Group();
-        scene.add(tileGroup);
-
-        const tileGeom = new THREE.BoxGeometry(0.95, 0.2, 0.95);
-        const edgeGeom = new THREE.EdgesGeometry(tileGeom);
-
-        const offsetX = (cols - 1) / 2;
-        const offsetZ = (rows - 1) / 2;
-
-        for (let z = -1; z <= rows; z++) {
-            for (let x = -1; x <= cols; x++) {
-                const isInner = (x >= 0 && x < cols && z >= 0 && z < rows);
-                
-                // 💡 핵심 수정: 경기장 밖(생성 지점)을 눈에 보이도록 어두운 회색(0x333333)으로 칠함
-                const mat = new THREE.MeshStandardMaterial({ 
-                    color: isInner ? 0xffffff : 0x333333 
-                });
-                const tile = new THREE.Mesh(tileGeom, mat);
-                tile.position.set(x - offsetX, 0, z - offsetZ);
-                
-                // 대기존 타일에도 희미하게 검정 라인을 그려서 구역을 명확히 함
-                const edgeColor = isInner ? 0x000000 : 0x111111;
-                const edges = new THREE.LineSegments(edgeGeom, new THREE.LineBasicMaterial({ color: edgeColor, linewidth: 2 }));
-                tile.add(edges);
-
-                tile.userData = { gridX: x, gridZ: z, isInner: isInner };
-                tileGroup.add(tile);
-                tiles[`${x},${z}`] = tile;
-            }
-        }
-
-        // 3. 게임 변수
-        let isPlaying = false;
-        let gameOver = false;
-        let playerPos = { x: -99, z: -99 };
-        let score = 0;
-        let lastTime = 0;
+        // 덱 초기화 (여유있게 10장 미리 생성)
+        deck = Array.from({length: 10}, () => randomColor());
         
-        let waveSpeed = 300; 
-        let spawnTimer = 0;
-        let waves = []; 
+        updateStats();
+        renderDeck();
 
-        // 4. 입력 처리
-        const raycaster = new THREE.Raycaster();
-        const mouse = new THREE.Vector2();
-
-        function getIntersectedTile(e) {
-            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects(tileGroup.children);
-            if (intersects.length > 0) return intersects[0].object;
-            return null;
-        }
-
-        function updatePlayerPos(e) {
-            const tile = getIntersectedTile(e);
-            if (tile && tile.userData.isInner) {
-                playerPos.x = tile.userData.gridX;
-                playerPos.z = tile.userData.gridZ;
+        // 60초 타이머 시작 (부드러운 게이지바를 위해 0.1초마다 갱신)
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            timeLeft -= 0.1;
+            updateTimerBar();
+            if (timeLeft <= 0) {
+                endGame(true); // 타임 오버
             }
+        }, 100);
+    }
+
+    function updateTimerBar() {
+        const bar = document.getElementById('timer-bar');
+        const percentage = Math.max(0, (timeLeft / 60) * 100);
+        bar.style.width = percentage + '%';
+
+        // 시간에 따른 색상 변화 (초록 -> 주황 -> 빨강)
+        if (percentage <= 20) {
+            bar.style.backgroundColor = '#fa5252'; // 빨강
+        } else if (percentage <= 50) {
+            bar.style.backgroundColor = '#fd7e14'; // 주황
+        } else {
+            bar.style.backgroundColor = '#20c997'; // 초록
         }
+    }
 
-        function triggerGameOver(reason) {
-            if (!isPlaying || gameOver) return;
-            isPlaying = false;
-            gameOver = true;
-            document.getElementById('deathReason').innerText = reason;
-            document.getElementById('gameover-container').style.display = 'block';
-            document.getElementById('startMsg').style.display = 'none';
-        }
+    function updateStats() {
+        document.getElementById('score-display').innerText = `현재 점수: ${score}`;
+        document.getElementById('max-score-display').innerText = `최고 기록: ${maxScore}`;
+    }
 
-        window.addEventListener('pointerdown', (e) => {
-            if (e.target.tagName === 'BUTTON' || gameOver) return;
-            const tile = getIntersectedTile(e);
-            if (tile && tile.userData.isInner && !isPlaying) {
-                isPlaying = true;
-                document.getElementById('startMsg').style.display = 'none';
-                updatePlayerPos(e);
-                lastTime = Date.now();
-                spawnWaveIfNeeded();
-            } else if (isPlaying) {
-                updatePlayerPos(e);
-            }
-        });
+    function renderDeck() {
+        const container = document.getElementById('deck-container');
+        container.innerHTML = '';
 
-        window.addEventListener('pointermove', (e) => { if (isPlaying) updatePlayerPos(e); });
-        window.addEventListener('pointerup', () => triggerGameOver("마우스를 떼서 게임 오버!"));
-        window.addEventListener('pointerleave', () => triggerGameOver("화면을 벗어나 게임 오버!"));
-
-        document.getElementById('resetBtn').addEventListener('click', () => {
-            playerPos = { x: -99, z: -99 };
-            score = 0;
-            waveSpeed = 300;
-            waves = [];
-            spawnTimer = 0;
-            gameOver = false;
-            isPlaying = false;
-            document.getElementById('score').innerText = score;
-            document.getElementById('gameover-container').style.display = 'none';
-            document.getElementById('startMsg').style.display = 'block';
-        });
-
-        // 5. 웨이브 생성 로직 (반드시 대기존에서 시작)
-        function spawnWave(type) {
-            let dir, axisVal, dx = 0, dz = 0, safeIndex;
+        // 최대 4장 렌더링 (현재 1장 + 다음 카드 3장)
+        const cardsToShow = Math.min(4, deck.length);
+        
+        // 아래에 깔리는 카드부터 먼저 그려서 z-index 관리
+        for (let i = cardsToShow - 1; i >= 0; i--) {
+            const cardColor = deck[i];
+            const cardEl = document.createElement('div');
+            cardEl.className = `card bg-${cardColor}`;
             
-            if (type === 'vertical') { // 상 하로 쓸고 가는 웨이브
-                dir = Math.random() < 0.5 ? 'top' : 'bottom';
-                // 무조건 -1(맨 위 대기존) 또는 rows(맨 아래 대기존)에서 생성
-                axisVal = (dir === 'top') ? -1 : rows; 
-                dz = (dir === 'top') ? 1 : -1;
-                safeIndex = Math.floor(Math.random() * cols);
-            } else { // 좌 우로 쓸고 가는 웨이브
-                dir = Math.random() < 0.5 ? 'left' : 'right';
-                // 무조건 -1(맨 좌측 대기존) 또는 cols(맨 우측 대기존)에서 생성
-                axisVal = (dir === 'left') ? -1 : cols;
-                dx = (dir === 'left') ? 1 : -1;
-                safeIndex = Math.floor(Math.random() * rows);
-            }
+            // 시각적 스태킹 효과 (우측 하단으로 살짝씩 밀림)
+            cardEl.style.transform = `translate(${i * 6}px, ${i * 6}px)`;
+            cardEl.style.zIndex = 10 - i;
 
-            waves.push({
-                type: type, dir: dir, axisVal: axisVal, dx: dx, dz: dz,
-                safeIndex: safeIndex, state: 'blink', timer: 0, blinkCount: 0, isVisible: true
-            });
+            // 맨 위 카드(인덱스 0)만 드래그 가능
+            if (i === 0) {
+                makeDraggable(cardEl);
+            }
+            container.appendChild(cardEl);
+        }
+    }
+
+    function makeDraggable(el) {
+        let startX = 0, startY = 0, currentX = 0, currentY = 0;
+
+        // 마우스 및 터치 동시 지원
+        el.addEventListener('pointerdown', dragStart);
+
+        function dragStart(e) {
+            if (!isPlaying) return;
+            e.preventDefault();
+            
+            startX = e.clientX;
+            startY = e.clientY;
+            
+            el.classList.add('dragging');
+            
+            document.addEventListener('pointermove', dragMove);
+            document.addEventListener('pointerup', dragEnd);
         }
 
-        function spawnWaveIfNeeded() {
-            let vCount = waves.filter(w => w.type === 'vertical').length;
-            let hCount = waves.filter(w => w.type === 'horizontal').length;
-            if (vCount < 2 && Math.random() < 0.7) spawnWave('vertical');
-            if (hCount < 1 && Math.random() < 0.5) spawnWave('horizontal');
-            if (vCount === 0 && hCount === 0) spawnWave('vertical');
+        function dragMove(e) {
+            e.preventDefault();
+            currentX = e.clientX - startX;
+            currentY = e.clientY - startY;
+            
+            // 드래그 방향에 맞춰 살짝 회전하는 효과 (게임성 부여)
+            const rotation = currentX * 0.05;
+            el.style.transform = `translate(${currentX}px, ${currentY}px) rotate(${rotation}deg)`;
         }
 
-        // 6. 그리드 상태 계산
-        function updateGridState() {
-            for (let z = -1; z <= rows; z++) {
-                for (let x = -1; x <= cols; x++) {
-                    const t = tiles[`${x},${z}`];
-                    t.userData.isDeadly = false;
-                    t.userData.isSafe = false;
-                    t.userData.isIntersectionSafe = false;
-                }
-            }
+        function dragEnd(e) {
+            document.removeEventListener('pointermove', dragMove);
+            document.removeEventListener('pointerup', dragEnd);
+            el.classList.remove('dragging');
 
-            let vWaves = []; 
-            let hWaves = []; 
-
-            for (let w of waves) {
-                if (w.state === 'idle' || !w.isVisible) continue;
-                
-                if (w.type === 'vertical') {
-                    vWaves.push(w);
-                    for (let x = -1; x <= cols; x++) {
-                        let t = tiles[`${x},${w.axisVal}`];
-                        if (t) {
-                            t.userData.isDeadly = true;
-                            if (x === w.safeIndex) t.userData.isSafe = true;
-                        }
-                    }
-                } else {
-                    hWaves.push(w);
-                    for (let z = -1; z <= rows; z++) {
-                        let t = tiles[`${w.axisVal},${z}`];
-                        if (t) {
-                            t.userData.isDeadly = true;
-                            if (z === w.safeIndex) t.userData.isSafe = true;
-                        }
-                    }
-                }
-            }
-
-            for (let vw of vWaves) {
-                for (let hw of hWaves) {
-                    let ix = hw.axisVal;
-                    let iz = vw.axisVal;
-                    let offsets = [[0,0], [-1,0], [1,0], [0,-1], [0,1]];
-                    for (let off of offsets) {
-                        let t = tiles[`${ix + off[0]},${iz + off[1]}`];
-                        if (t) t.userData.isIntersectionSafe = true;
-                    }
-                }
-            }
+            checkDrop(el);
         }
+    }
 
-        function checkCollision() {
-            if (!isPlaying || gameOver) return;
-            const pTile = tiles[`${playerPos.x},${playerPos.z}`];
-            if (pTile) {
-                if (pTile.userData.isDeadly && !pTile.userData.isSafe && !pTile.userData.isIntersectionSafe) {
-                    triggerGameOver("웨이브에 휩쓸렸습니다!");
-                }
+    function checkDrop(cardEl) {
+        const cardRect = cardEl.getBoundingClientRect();
+        // 카드의 중심 좌표
+        const centerX = cardRect.left + cardRect.width / 2;
+        const centerY = cardRect.top + cardRect.height / 2;
+
+        const zones = document.querySelectorAll('.zone');
+        let targetZone = null;
+
+        // 중심 좌표가 어느 구역(Zone) 안에 들어갔는지 확인
+        zones.forEach(zone => {
+            const rect = zone.getBoundingClientRect();
+            if (centerX >= rect.left && centerX <= rect.right &&
+                centerY >= rect.top && centerY <= rect.bottom) {
+                targetZone = zone;
             }
-        }
-
-        function updateColors() {
-            for (let z = -1; z <= rows; z++) {
-                for (let x = -1; x <= cols; x++) {
-                    const t = tiles[`${x},${z}`];
-                    
-                    if (t.userData.isIntersectionSafe && t.userData.isDeadly) {
-                        t.material.color.setHex(0x00ff00);
-                    } else if (t.userData.isSafe) {
-                        t.material.color.setHex(0x00ff00);
-                    } else if (t.userData.isDeadly) {
-                        t.material.color.setHex(0x800080);
-                    } else {
-                        // 대기존은 어두운 회색, 경기장은 흰색
-                        t.material.color.setHex(t.userData.isInner ? 0xffffff : 0x333333);
-                    }
-                }
-            }
-            if (isPlaying && playerPos.x !== -99) {
-                const pTile = tiles[`${playerPos.x},${playerPos.z}`];
-                if (pTile) pTile.material.color.setHex(0x00aa00);
-            }
-        }
-
-        // 7. 메인 루프
-        function animate() {
-            requestAnimationFrame(animate);
-
-            if (isPlaying && !gameOver) {
-                const now = Date.now();
-                const delta = now - lastTime;
-                lastTime = now;
-
-                spawnTimer += delta;
-                if (spawnTimer > waveSpeed * 4) {
-                    spawnTimer = 0;
-                    spawnWaveIfNeeded();
-                }
-
-                for (let i = waves.length - 1; i >= 0; i--) {
-                    let w = waves[i];
-                    w.timer += delta;
-
-                    if (w.state === 'blink') {
-                        if (w.timer > 150) { 
-                            w.isVisible = !w.isVisible;
-                            w.blinkCount++;
-                            w.timer = 0;
-                            if (w.blinkCount >= 6) { 
-                                w.state = 'move';
-                                w.isVisible = true;
-                                w.timer = 0;
-                            }
-                        }
-                    } 
-                    else if (w.state === 'move') {
-                        if (w.timer > waveSpeed) {
-                            w.timer = 0;
-                            w.axisVal += (w.type === 'vertical') ? w.dz : w.dx;
-
-                            let isOut = false;
-                            if (w.dir === 'top' && w.axisVal > rows) isOut = true;
-                            if (w.dir === 'bottom' && w.axisVal < -1) isOut = true;
-                            if (w.dir === 'left' && w.axisVal > cols) isOut = true;
-                            if (w.dir === 'right' && w.axisVal < -1) isOut = true;
-
-                            if (isOut) {
-                                waves.splice(i, 1);
-                                score += 10;
-                                document.getElementById('score').innerText = score;
-                                if (waveSpeed > 80) waveSpeed -= 4; 
-                            }
-                        }
-                    }
-                }
-                
-                updateGridState();
-                checkCollision();
-                updateColors();
-            } else if (gameOver) {
-                updateColors(); 
-            }
-
-            renderer.render(scene, camera);
-        }
-
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        updateGridState();
-        updateColors();
-        animate();
-    </script>
+        if (targetZone) {
+            const targetColor = targetZone.getAttribute('data-color');
+            const cardColor = deck[0]; // 현재 맨 위 카드의 색상
+
+            if (targetColor === cardColor) {
+                // 일치 (성공)
+                score++;
+                deck.shift(); // 성공한 카드 제거
+                deck.push(randomColor()); // 맨 뒤에 새 카드 추가
+                updateStats();
+                renderDeck(); // 덱 다시 그리기
+            } else {
+                // 불일치 (탈락)
+                endGame(false);
+            }
+        } else {
+            // 아무 구역에도 드롭하지 않은 경우 제자리로 복귀
+            cardEl.style.transform = 'translate(0px, 0px) rotate(0deg)';
+        }
+    }
+
+    function endGame(isTimeUp) {
+        isPlaying = false;
+        clearInterval(timerInterval);
+
+        // 최고 기록 갱신
+        if (score > maxScore) {
+            maxScore = score;
+            localStorage.setItem('cardGameMaxScore', maxScore);
+        }
+
+        const overlay = document.getElementById('overlay');
+        overlay.style.display = 'flex';
+        
+        document.getElementById('overlay-title').innerText = isTimeUp ? '⏳ 타임 오버!' : '💀 색상 불일치! 탈락!';
+        document.getElementById('overlay-desc').innerText = `최종 점수: ${score}점\n최고 기록: ${maxScore}점`;
+    }
+</script>
+
 </body>
 </html>
