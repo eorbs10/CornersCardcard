@@ -179,7 +179,7 @@
 <div id="overlay">
     <h1 id="overlay-title">스피드 카드 분류</h1>
     <p id="overlay-desc">같은 색상의 박스로 카드를 드래그하세요.<br>틀리면 즉시 탈락합니다!</p>
-    <button onclick="startGame()">게임 시작</button>
+    <button onclick="startGame()">게임 시작 (30초)</button>
 </div>
 
 <script>
@@ -187,7 +187,7 @@
     let deck = [];
     let score = 0;
     let maxScore = localStorage.getItem('cardGameMaxScore') || 0;
-    let timeLeft = 60;
+    let timeLeft = 30; // 30초로 변경
     let timerInterval;
     let isPlaying = false;
 
@@ -201,16 +201,16 @@
     function startGame() {
         document.getElementById('overlay').style.display = 'none';
         score = 0;
-        timeLeft = 60;
+        timeLeft = 30; // 30초로 변경
         isPlaying = true;
         
-        // 덱 초기화 (여유있게 10장 미리 생성)
+        // 덱 초기화
         deck = Array.from({length: 10}, () => randomColor());
         
         updateStats();
         renderDeck();
 
-        // 60초 타이머 시작 (부드러운 게이지바를 위해 0.1초마다 갱신)
+        // 30초 타이머 시작 (부드러운 게이지바를 위해 0.1초마다 갱신)
         clearInterval(timerInterval);
         timerInterval = setInterval(() => {
             timeLeft -= 0.1;
@@ -223,10 +223,11 @@
 
     function updateTimerBar() {
         const bar = document.getElementById('timer-bar');
-        const percentage = Math.max(0, (timeLeft / 60) * 100);
+        // 30초 기준으로 퍼센트 계산 변경
+        const percentage = Math.max(0, (timeLeft / 30) * 100);
         bar.style.width = percentage + '%';
 
-        // 시간에 따른 색상 변화 (초록 -> 주황 -> 빨강)
+        // 시간에 따른 색상 변화
         if (percentage <= 20) {
             bar.style.backgroundColor = '#fa5252'; // 빨강
         } else if (percentage <= 50) {
@@ -248,17 +249,14 @@
         // 최대 4장 렌더링 (현재 1장 + 다음 카드 3장)
         const cardsToShow = Math.min(4, deck.length);
         
-        // 아래에 깔리는 카드부터 먼저 그려서 z-index 관리
         for (let i = cardsToShow - 1; i >= 0; i--) {
             const cardColor = deck[i];
             const cardEl = document.createElement('div');
             cardEl.className = `card bg-${cardColor}`;
             
-            // 시각적 스태킹 효과 (우측 하단으로 살짝씩 밀림)
             cardEl.style.transform = `translate(${i * 6}px, ${i * 6}px)`;
             cardEl.style.zIndex = 10 - i;
 
-            // 맨 위 카드(인덱스 0)만 드래그 가능
             if (i === 0) {
                 makeDraggable(cardEl);
             }
@@ -269,7 +267,6 @@
     function makeDraggable(el) {
         let startX = 0, startY = 0, currentX = 0, currentY = 0;
 
-        // 마우스 및 터치 동시 지원
         el.addEventListener('pointerdown', dragStart);
 
         function dragStart(e) {
@@ -290,7 +287,6 @@
             currentX = e.clientX - startX;
             currentY = e.clientY - startY;
             
-            // 드래그 방향에 맞춰 살짝 회전하는 효과 (게임성 부여)
             const rotation = currentX * 0.05;
             el.style.transform = `translate(${currentX}px, ${currentY}px) rotate(${rotation}deg)`;
         }
@@ -306,14 +302,12 @@
 
     function checkDrop(cardEl) {
         const cardRect = cardEl.getBoundingClientRect();
-        // 카드의 중심 좌표
         const centerX = cardRect.left + cardRect.width / 2;
         const centerY = cardRect.top + cardRect.height / 2;
 
         const zones = document.querySelectorAll('.zone');
         let targetZone = null;
 
-        // 중심 좌표가 어느 구역(Zone) 안에 들어갔는지 확인
         zones.forEach(zone => {
             const rect = zone.getBoundingClientRect();
             if (centerX >= rect.left && centerX <= rect.right &&
@@ -324,21 +318,18 @@
 
         if (targetZone) {
             const targetColor = targetZone.getAttribute('data-color');
-            const cardColor = deck[0]; // 현재 맨 위 카드의 색상
+            const cardColor = deck[0];
 
             if (targetColor === cardColor) {
-                // 일치 (성공)
                 score++;
-                deck.shift(); // 성공한 카드 제거
-                deck.push(randomColor()); // 맨 뒤에 새 카드 추가
+                deck.shift();
+                deck.push(randomColor());
                 updateStats();
-                renderDeck(); // 덱 다시 그리기
+                renderDeck();
             } else {
-                // 불일치 (탈락)
                 endGame(false);
             }
         } else {
-            // 아무 구역에도 드롭하지 않은 경우 제자리로 복귀
             cardEl.style.transform = 'translate(0px, 0px) rotate(0deg)';
         }
     }
@@ -347,7 +338,6 @@
         isPlaying = false;
         clearInterval(timerInterval);
 
-        // 최고 기록 갱신
         if (score > maxScore) {
             maxScore = score;
             localStorage.setItem('cardGameMaxScore', maxScore);
